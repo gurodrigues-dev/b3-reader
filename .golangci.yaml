@@ -1,0 +1,49 @@
+version: "2"
+output:
+  formats:
+    text:
+      path: stdout
+    checkstyle:
+      path: lint.xml
+linters:
+  enable:
+    - copyloopvar
+    - cyclop
+    - errorlint
+    - exhaustive
+    - gosec
+    - makezero
+    - misspell
+    - mnd
+    - nilerr
+    - noctx
+    - revive
+    - unconvert
+    - unparam
+    - usetesting
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: 'Magic number: (\d+)'
+      - path: '(.+)_test\.go'
+        linters:
+          - errcheck
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

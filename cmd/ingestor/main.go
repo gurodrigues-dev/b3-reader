@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
@@ -19,7 +20,6 @@ import (
 
 func main() {
 	l, _ := zap.NewProduction()
-	defer l.Sync()
 
 	cfg, err := config.LoadEnvs()
 	if err != nil {
@@ -28,7 +28,7 @@ func main() {
 
 	migrations(cfg.DatabaseURL)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
@@ -61,7 +61,7 @@ func migrations(database string) {
 		log.Fatalf("migrate error: %v", err)
 	}
 
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		log.Fatalf("upload migrations error: %v", err)
 	}
 

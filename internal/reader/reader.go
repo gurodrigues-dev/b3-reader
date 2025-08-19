@@ -11,6 +11,7 @@ import (
 )
 
 type Reader interface {
+	// Use read to read a folder of CSV files or a single CSV. It sends columns and rows to the expected channel.
 	Read(ctx context.Context) (<-chan [][]string, <-chan error)
 }
 
@@ -45,49 +46,11 @@ func (r *CSVReader) Read(ctx context.Context) (<-chan [][]string, <-chan error) 
 		}
 
 		if info.IsDir() {
-			err := filepath.Walk(r.path, func(filePath string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-
-				if info.IsDir() {
-					return nil
-				}
-
-				r.logger.Info("reading new file", zap.String("file", info.Name()))
-				records, err := r.readFile(filePath)
-				if err != nil {
-					return fmt.Errorf("read file error %s: %w", filePath, err)
-				}
-
-				r.logger.Info("sending columns and rows to channel")
-				select {
-				case recordsChan <- records:
-				case <-ctx.Done():
-					return ctx.Err()
-				}
-
-				return nil
-			})
-
-			if err != nil {
-				errChan <- fmt.Errorf("list files in path error: %w", err)
-			}
-		} else {
-			r.logger.Info("reading file")
-			records, err := r.readFile(r.path)
-			if err != nil {
-				errChan <- fmt.Errorf("read file error %s: %w", r.path, err)
-				return
-			}
-
-			r.logger.Info("sending columns and rows to channel")
-			select {
-			case recordsChan <- records:
-			case <-ctx.Done():
-				return
-			}
+			r.readDir(ctx, recordsChan, errChan)
+			return
 		}
+
+		r.readSingleFile(ctx, recordsChan, errChan)
 	}()
 
 	return recordsChan, errChan
@@ -110,4 +73,49 @@ func (r *CSVReader) readFile(filePath string) ([][]string, error) {
 	}
 
 	return records, nil
+}
+
+func (r *CSVReader) readDir(ctx context.Context, recordsChan chan<- [][]string, errChan chan<- error) {
+	err := filepath.Walk(r.path, func(filePath string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if info.IsDir() {
+			return nil
+		}
+
+		r.logger.Info("reading new file", zap.String("file", info.Name()))
+		records, err := r.readFile(filePath)
+		if err != nil {
+			return fmt.Errorf("read file error %s: %w", filePath, err)
+		}
+
+		r.logger.Info("sending columns and rows to channel")
+		select {
+		case recordsChan <- records:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	})
+
+	if err != nil {
+		errChan <- fmt.Errorf("list files in path error: %w", err)
+	}
+}
+
+func (r *CSVReader) readSingleFile(ctx context.Context, recordsChan chan<- [][]string, errChan chan<- error) {
+	r.logger.Info("reading file")
+	records, err := r.readFile(r.path)
+	if err != nil {
+		errChan <- fmt.Errorf("read file error %s: %w", r.path, err)
+		return
+	}
+
+	r.logger.Info("sending columns and rows to channel")
+	select {
+	case recordsChan <- records:
+	case <-ctx.Done():
+		return
+	}
 }

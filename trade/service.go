@@ -16,47 +16,30 @@ const (
 
 type Service struct {
 	repository Repository
-	csvreader  *reader.CSVReader
+	csvreader  reader.Reader
 	logger     *zap.Logger
 }
 
-func NewService(repo Repository, csvreader *reader.CSVReader, logger *zap.Logger) *Service {
+func NewService(r Repository, csv reader.Reader, l *zap.Logger) *Service {
 	return &Service{
-		repository: repo,
-		csvreader:  csvreader,
-		logger:     logger,
+		repository: r,
+		csvreader:  csv,
+		logger:     l,
 	}
 }
 
 func (s *Service) IngestFiles(ctx context.Context, filePath string) error {
 	s.logger.Info("ingesting files...")
 	recordsChan, errChan := s.csvreader.Read(ctx)
+
 	for {
 		select {
 		case records, ok := <-recordsChan:
 			if !ok {
 				return nil
 			}
-
-			records = records[1:]
-
-			s.logger.Info("making parse records")
-			trades, err := parseTrade(records)
-			if err != nil {
-				return fmt.Errorf("parse error in file %s: %w", filePath, err)
-			}
-
-			s.logger.Info("creating batches")
-			batches, err := batcher.Batch(trades, batchSize)
-			if err != nil {
-				return fmt.Errorf("batch error: %w", err)
-			}
-
-			s.logger.Info("inserting batch in db")
-			for idx, batch := range batches {
-				if _, err := s.repository.SaveBatch(ctx, batch); err != nil {
-					return fmt.Errorf("database save batch error %d: %w", idx+1, err)
-				}
+			if err := s.processRecords(ctx, filePath, records); err != nil {
+				return err
 			}
 
 		case err, ok := <-errChan:
@@ -91,4 +74,31 @@ func (s *Service) GetAggregatedData(ctx context.Context, ticker string, startDat
 		"max_range_value":  maxRangeValue,
 		"max_daily_volume": maxDailyVolume,
 	}, nil
+}
+
+func (s *Service) processRecords(ctx context.Context, filePath string, records [][]string) error {
+	if len(records) > 0 {
+		records = records[1:]
+	}
+
+	s.logger.Info("making parse records")
+	trades, err := parseTrade(records)
+	if err != nil {
+		return fmt.Errorf("parse error in file %s: %w", filePath, err)
+	}
+
+	s.logger.Info("creating batches")
+	batches, err := batcher.Batch(trades, batchSize)
+	if err != nil {
+		return fmt.Errorf("batch error: %w", err)
+	}
+
+	s.logger.Info("inserting batch in db")
+	for idx, batch := range batches {
+		if _, err := s.repository.SaveBatch(ctx, batch); err != nil {
+			return fmt.Errorf("database save batch error %d: %w", idx+1, err)
+		}
+	}
+
+	return nil
 }
