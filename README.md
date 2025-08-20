@@ -5,7 +5,7 @@ Aplicação backend (Go) para ingerir, processar e expor dados agregados de nego
 Este README é o guia único de execução. Ele cobre: como configurar o ambiente, como construir e rodar a ingestão, como subir a API, como consultar os dados e como validar performance. Também explica a arquitetura, modelagem de dados e decisões de engenharia.
 
 > Imagens e fluxogramas, com documentação conjunta (em inglês). Pode ser encontrada aqui:
-[B3 Reader Doc.](https://deepwiki.com/gurodrigues-dev/b3-reader/2-getting-started)
+[B3 Reader Doc.](https://deepwiki.com/gurodrigues-dev/b3-reader/1-overview)
 
 ---
 
@@ -23,12 +23,13 @@ docker network create bubble
 ```
 
 3) Baixar os CSVs e colocá-los em input/
+> Essa pasta deve esta na raíz do projeto.
 
-4) Construir as imagens (API e ingestor)
+4) Construir as imagens e rodar containers (API e ingestor)
 ```bash
 make ingestion-logs
 ```
-> Para verificar o motivo dos demais arquivos. Acesse `Comandos e como rodar`
+> Para verificar o motivo dos demais comandos no Makeafile. Acesse `Comandos e como rodar` neste readme.
 
 5) Aguarde a finalização do ingestor e incialização da API.
 
@@ -166,20 +167,28 @@ QuantidadeNegociada
 HoraFechamento (HHMMSSmmm)
 Separador padrão: ‘;’. O CSVReader é inicializado com sep ‘;’ e FieldsPerRecord = -1, tolerante a variações de colunas extras não utilizadas.
 
-Idempotência na ingestão: ver seção “Idempotência, confiabilidade e melhorias” para recomendações de constraints/estratégias.
+### Validação da ingestão e benchmark
+
+Para garantir a correção e a eficiência do pipeline de ingestão, realizei um teste completo utilizando 7 arquivos de negociações (últimos 7 dias úteis), com as seguintes quantidades de linhas por arquivo:
+
+- 06-08-2025: 9.545.228 linhas
+- 07-08-2025: 9.910.228 linhas
+- 08-08-2025: 9.364.308 linhas
+- 11-08-2025: 8.683.494 linhas
+- 12-08-2025: 10.204.893 linhas
+- 13-08-2025: 9.491.808 linhas
+- 14-08-2025: 9.663.537 linhas
+
+Total processado: 66.863.496 linhas.
+
+Metodologia de validação:
+- Após a ingestão, foi executado um COUNT(*) na tabela de destino (trades) para verificar a correspondência exata com o total esperado. O resultado do COUNT(*) coincidiu com o somatório das linhas dos arquivos, validando que todos os registros foram devidamente persistidos, sem perdas ou duplicidades nesse cenário de teste.
+- A ingestão foi feita via serviço ingestor com batching (5.000 registros) e CopyFrom (pgx), com índices conforme descrito na seção de modelagem e tuning. Além de usar BRIN para armazenar um resumo por bloco de dados de dados indexados.
+
+Performance observada:
+- Tempo de ingestão: aproximadamente 15 minutos para os 7 arquivos (≈ 66,86 milhões de linhas) em uma máquina de desenvolvimento padrão (Docker, 16 GB de RAM, 6 cores).
 
 ### API Rest e contrato de resposta
-
-Formato esperado dos CSVs, conforme a B3 (ordem de colunas fixa). Campos relevantes:
-
-DataNegocio
-CodigoInstrumento
-PrecoNegocio
-QuantidadeNegociada
-HoraFechamento (HHMMSSmmm)
-Separador padrão: ‘;’. O CSVReader é inicializado com sep ‘;’ e FieldsPerRecord = -1, tolerante a variações de colunas extras não utilizadas.
-
-Idempotência na ingestão: ver seção “Idempotência, confiabilidade e melhorias” para recomendações de constraints/estratégias.
 
 API REST e contrato de resposta
 A API expõe um único endpoint que recebe:
@@ -199,8 +208,11 @@ Definições da agregação:
 
 - max_range_value: maior PrecoNegocio para o ticker no período filtrado.
 - max_daily_volume: maior soma diária de QuantidadeNegociada para o ticker no período filtrado.
-Documentação OpenAPI/Swagger: o repositório contém docs/swagger.yaml e docs/swagger.json. Se a API estiver servindo Swagger em runtime, utilize a URL e rota expostas pelo serviço. Em alternativa, importe o arquivo swagger.yaml em um visualizador de sua preferência e execute a chamada pelo próprio UI do Swagger.
+Documentação OpenAPI/Swagger: o repositório contém docs/swagger.yaml e docs/swagger.json. Se a API estiver servindo Swagger em runtime, utilize a URL e rota expostas pelo serviço. Em alternativa, importe o arquivo swagger.yaml em um visualizador de sua preferência e execute a chamada pelo próprio UI do Swagger. Pode ser acessado utilizando a rota `/swagger/index.html`
 
+Performance observada:
+- Tempo de resposta da API: entre 100 ms e 1 s nas consultas agregadas típicas, dependendo do ticker, do intervalo de datas e do aquecimento do cache do banco de dados.
+- Em execuções subsequentes, o tempo da API tende a melhorar para consultas repetidas (efeito de cache do Postgres e do SO).
 
 ### Comandos e como rodar
 
@@ -268,10 +280,6 @@ Alvos disponíveis:
   Internamente: checa se a rede existe e cria com docker network create $(NETWORK) se necessário.
   Requer: ter definido a variável de ambiente NETWORK, por exemplo:
     export NETWORK=bubble
-  Quando usar: antes do primeiro docker compose up, se o compose referencia networks.external: true.
-  Exemplo:
-    export NETWORK=bubble
-    make network
 
 - build-api
   Compila o binário da API para bin/api a partir de cmd/api/main.go.
@@ -354,36 +362,4 @@ Fluxos recomendados:
   3) Execute os binários:
      ./bin/ingestor
      ./bin/api
-
-Notas:
-- Os alvos ingestion e api dependem do docker-compose.yml na raiz do projeto.
-- Se você estiver no macOS/Windows, ajuste os recursos do Docker Desktop (CPUs/RAM) em Settings > Resources para um desempenho adequado.
-- Se o compose utiliza uma rede externa (networks: bubble: external: true), a rede precisa existir antes (use make network com NETWORK=bubble).
-
-### Validação da ingestão e benchmark
-
-Para garantir a correção e a eficiência do pipeline de ingestão, realizamos um teste completo utilizando 7 arquivos de negociações (últimos 7 dias úteis), com as seguintes quantidades de linhas por arquivo:
-
-- 06-08-2025: 9.545.228 linhas
-- 07-08-2025: 9.910.228 linhas
-- 08-08-2025: 9.364.308 linhas
-- 11-08-2025: 8.683.494 linhas
-- 12-08-2025: 10.204.893 linhas
-- 13-08-2025: 9.491.808 linhas
-- 14-08-2025: 9.663.537 linhas
-
-Total processado: 66.863.496 linhas.
-
-Metodologia de validação:
-- Após a ingestão, foi executado um COUNT(*) na tabela de destino (trades) para verificar a correspondência exata com o total esperado. O resultado do COUNT(*) coincidiu com o somatório das linhas dos arquivos, validando que todos os registros foram devidamente persistidos, sem perdas ou duplicidades nesse cenário de teste.
-- A ingestão foi feita via serviço ingestor com batching (5.000 registros) e CopyFrom (pgx), com índices conforme descrito na seção de modelagem e tuning.
-
-Performance observada:
-- Tempo de ingestão: aproximadamente 15 minutos para os 7 arquivos (≈ 66,86 milhões de linhas) em uma máquina de desenvolvimento padrão (Docker, 16 GB de RAM, 6 cores).
-- Tempo de resposta da API: entre 100 ms e 1 s nas consultas agregadas típicas, dependendo do ticker, do intervalo de datas e do aquecimento do cache do banco de dados.
-
-Notas:
-- Em execuções subsequentes, o tempo da API tende a melhorar para consultas repetidas (efeito de cache do Postgres e do SO).
-- Caso sua máquina tenha menos recursos, considere reduzir concorrência e/ou ajustar o batch size para manter estabilidade; com mais recursos (CPU/SSD rápidos), é possível reduzir o tempo total de ingestão.
-
 

@@ -40,12 +40,12 @@ func main() {
 
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		panic(err)
+		log.Fatal(err)
 	}
 
 	migrations(cfg.DatabaseURL)
@@ -59,7 +59,7 @@ func main() {
 	l.Info("starting server", zap.String("port", cfg.ServerPort))
 	err = router.Run(fmt.Sprintf(":%s", cfg.ServerPort))
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 

@@ -33,12 +33,12 @@ func main() {
 
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
-		panic(err)
+		log.Fatal(err)
 	}
 
 	csvReader := reader.NewCSVReader(cfg.FilePath, ';', -1, l)
@@ -48,7 +48,7 @@ func main() {
 	l.Info("data ingestion started")
 	err = service.IngestFiles(ctx, cfg.FilePath)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
 
