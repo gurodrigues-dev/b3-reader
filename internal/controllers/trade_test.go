@@ -1,13 +1,15 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gurodrigues-dev/b3-reader/mocks"
+	"github.com/gurodrigues-dev/b3-reader/trade"
+	"github.com/gurodrigues-dev/b3-reader/trade/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
@@ -87,10 +89,10 @@ func TestController_GetTrade(t *testing.T) {
 		mockSvc.
 			EXPECT().
 			GetAggregatedData(gomock.Any(), "ITUB4", gomock.Nil()).
-			Return(map[string]interface{}{
-				"ticker":           "ITUB4",
-				"max_range_value":  12.34,
-				"max_daily_volume": 500,
+			Return(&trade.AggregatedData{
+				Ticker:         "ITUB4",
+				MaxRangeValue:  12.34,
+				MaxDailyVolume: 500,
 			}, nil)
 
 		req, _ := http.NewRequestWithContext(ctx, "GET", "/trade?ticker=ITUB4", nil)
@@ -99,8 +101,16 @@ func TestController_GetTrade(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), "ITUB4")
-		assert.Contains(t, w.Body.String(), "12.34")
-		assert.Contains(t, w.Body.String(), "500")
+
+		assert.Contains(t, w.Body.String(), `"ticker":"ITUB4"`)
+		assert.Contains(t, w.Body.String(), `"max_range_value":12.34`)
+		assert.Contains(t, w.Body.String(), `"max_daily_volume":500`)
+
+		var resp trade.AggregatedData
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, "ITUB4", resp.Ticker)
+		assert.Equal(t, 12.34, resp.MaxRangeValue)
+		assert.Equal(t, 500, resp.MaxDailyVolume)
 	})
 }

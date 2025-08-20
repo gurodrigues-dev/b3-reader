@@ -1,0 +1,52 @@
+basePath: /api/v1
+definitions:
+  trade.AggregatedData:
+    properties:
+      max_daily_volume:
+        type: integer
+      max_range_value:
+        type: number
+      ticker:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: API para leitura e agregação de dados de trades da B3.
+  title: B3 Reader API
+  version: "1.0"
+paths:
+  /trades:
+    get:
+      consumes:
+      - application/json
+      description: Retorna dados agregados de um ticker específico, podendo filtrar
+        por data de início
+      parameters:
+      - description: 'Código do ticker (ex: PETR4)'
+        in: query
+        name: ticker
+        required: true
+        type: string
+      - description: Data de início no formato YYYY-MM-DD
+        in: query
+        name: data_inicio
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/trade.AggregatedData'
+        "400":
+          description: Bad Request
+          schema:
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Obtém dados agregados de negociações
+      tags:
+      - trade
+swagger: "2.0"

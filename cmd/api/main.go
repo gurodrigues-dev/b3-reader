@@ -14,12 +14,19 @@ import (
 	"github.com/gurodrigues-dev/b3-reader/trade"
 	"github.com/gurodrigues-dev/b3-reader/trade/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 	"go.uber.org/zap"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/gurodrigues-dev/b3-reader/docs"
 )
 
+// @title B3 Reader API
+// @version 1.0
+// @description API para leitura e agregação de dados de trades da B3.
+// @BasePath /api/v1
 func main() {
 	l, _ := zap.NewProduction()
 
@@ -58,7 +65,11 @@ func main() {
 
 func setupRouter(ctrl *controllers.Controller) *gin.Engine {
 	r := gin.Default()
-	r.GET("/api/v1/trades", ctrl.GetTrade)
+
+	api := r.Group("/api/v1")
+	api.GET("/trades", ctrl.GetTrade)
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	return r
 }
 

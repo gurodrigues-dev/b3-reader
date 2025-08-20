@@ -1,0 +1,78 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API para leitura e agregação de dados de trades da B3.",
+        "title": "B3 Reader API",
+        "contact": {},
+        "version": "1.0"
+    },
+    "basePath": "/api/v1",
+    "paths": {
+        "/trades": {
+            "get": {
+                "description": "Retorna dados agregados de um ticker específico, podendo filtrar por data de início",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "trade"
+                ],
+                "summary": "Obtém dados agregados de negociações",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Código do ticker (ex: PETR4)",
+                        "name": "ticker",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Data de início no formato YYYY-MM-DD",
+                        "name": "data_inicio",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/trade.AggregatedData"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "trade.AggregatedData": {
+            "type": "object",
+            "properties": {
+                "max_daily_volume": {
+                    "type": "integer"
+                },
+                "max_range_value": {
+                    "type": "number"
+                },
+                "ticker": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

@@ -15,6 +15,12 @@ type Trade struct {
 	CreatedAt           time.Time
 }
 
+type AggregatedData struct {
+	Ticker         string  `json:"ticker"`
+	MaxDailyVolume int     `json:"max_daily_volume"`
+	MaxRangeValue  float64 `json:"max_range_value"`
+}
+
 type Writer interface {
 	// Insert trades in batches into the database.
 	SaveBatch(ctx context.Context, trades []Trade) (int64, error)
@@ -34,5 +40,5 @@ type Usecase interface {
 	// Ingest data into the database based on a csv folder or a single csv file.
 	IngestFiles(ctx context.Context, filePath string) error
 	// Search for volume and aggregation of a trade, using filters.
-	GetAggregatedData(ctx context.Context, ticker string, startDate *time.Time) (map[string]interface{}, error)
+	GetAggregatedData(ctx context.Context, ticker string, startDate *time.Time) (*AggregatedData, error)
 }

@@ -54,7 +54,7 @@ func (s *Service) IngestFiles(ctx context.Context, filePath string) error {
 	}
 }
 
-func (s *Service) GetAggregatedData(ctx context.Context, ticker string, startDate *time.Time) (map[string]interface{}, error) {
+func (s *Service) GetAggregatedData(ctx context.Context, ticker string, startDate *time.Time) (*AggregatedData, error) {
 	if ticker == "" {
 		return nil, fmt.Errorf("ticker is required")
 	}
@@ -69,10 +69,10 @@ func (s *Service) GetAggregatedData(ctx context.Context, ticker string, startDat
 		return nil, fmt.Errorf("fetching aggregated data error: %w", err)
 	}
 
-	return map[string]interface{}{
-		"ticker":           ticker,
-		"max_range_value":  maxRangeValue,
-		"max_daily_volume": maxDailyVolume,
+	return &AggregatedData{
+		Ticker:         ticker,
+		MaxDailyVolume: maxDailyVolume,
+		MaxRangeValue:  maxRangeValue,
 	}, nil
 }
 

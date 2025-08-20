@@ -21,6 +21,18 @@ func NewController(s trade.Usecase, l *zap.Logger) *Controller {
 	}
 }
 
+// GetTrade godoc
+// @Summary      Obtém dados agregados de negociações
+// @Description  Retorna dados agregados de um ticker específico, podendo filtrar por data de início
+// @Tags         trade
+// @Accept       json
+// @Produce      json
+// @Param        ticker       query     string  true  "Código do ticker (ex: PETR4)"
+// @Param        data_inicio  query     string  false "Data de início no formato YYYY-MM-DD"
+// @Success      200          {object}  trade.AggregatedData
+// @Failure      400          {object}  object
+// @Failure      500          {object}  object
+// @Router       /trades [get]
 func (ctrl *Controller) GetTrade(ctx *gin.Context) {
 	ticker := ctx.Query("ticker")
 	if ticker == "" {
@@ -31,7 +43,6 @@ func (ctrl *Controller) GetTrade(ctx *gin.Context) {
 
 	dataInicio := ctx.Query("data_inicio")
 	var startDate *time.Time
-	var err error
 
 	if dataInicio != "" {
 		parsedDate, err := time.Parse("2006-01-02", dataInicio)

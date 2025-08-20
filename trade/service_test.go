@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gurodrigues-dev/b3-reader/mocks"
+	mock_reader "github.com/gurodrigues-dev/b3-reader/internal/reader/mocks"
 	"github.com/gurodrigues-dev/b3-reader/trade"
+	"github.com/gurodrigues-dev/b3-reader/trade/mocks"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
@@ -16,12 +17,12 @@ import (
 func TestService_IngestFiles(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupMocks    func(repo *mocks.MockRepository, csvReader *mocks.MockReader)
+		setupMocks    func(repo *mocks.MockRepository, csvReader *mock_reader.MockReader)
 		expectedError error
 	}{
 		{
 			name: "successfully ingests files",
-			setupMocks: func(repo *mocks.MockRepository, csvReader *mocks.MockReader) {
+			setupMocks: func(repo *mocks.MockRepository, csvReader *mock_reader.MockReader) {
 				recordsChan := make(chan [][]string, 1)
 				errChan := make(chan error, 1)
 
@@ -43,7 +44,7 @@ func TestService_IngestFiles(t *testing.T) {
 		},
 		{
 			name: "returns error when parsing fails",
-			setupMocks: func(_ *mocks.MockRepository, csvReader *mocks.MockReader) {
+			setupMocks: func(_ *mocks.MockRepository, csvReader *mock_reader.MockReader) {
 				recordsChan := make(chan [][]string, 1)
 				errChan := make(chan error, 1)
 
@@ -59,7 +60,7 @@ func TestService_IngestFiles(t *testing.T) {
 		},
 		{
 			name: "returns error when saving batch fails",
-			setupMocks: func(repo *mocks.MockRepository, csvReader *mocks.MockReader) {
+			setupMocks: func(repo *mocks.MockRepository, csvReader *mock_reader.MockReader) {
 				recordsChan := make(chan [][]string, 1)
 				errChan := make(chan error, 1)
 
@@ -88,7 +89,7 @@ func TestService_IngestFiles(t *testing.T) {
 			defer ctrl.Finish()
 
 			repo := mocks.NewMockRepository(ctrl)
-			csvReader := mocks.NewMockReader(ctrl)
+			csvReader := mock_reader.NewMockReader(ctrl)
 			logger := zap.NewNop()
 
 			tt.setupMocks(repo, csvReader)
@@ -114,7 +115,7 @@ func TestGetAggregatedData(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockRepo := mocks.NewMockRepository(ctrl)
-		mockReader := mocks.NewMockReader(ctrl)
+		mockReader := mock_reader.NewMockReader(ctrl)
 
 		svc := trade.NewService(mockRepo, mockReader, zap.NewNop())
 
@@ -129,7 +130,7 @@ func TestGetAggregatedData(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockRepo := mocks.NewMockRepository(ctrl)
-		mockReader := mocks.NewMockReader(ctrl)
+		mockReader := mock_reader.NewMockReader(ctrl)
 
 		svc := trade.NewService(mockRepo, mockReader, zap.NewNop())
 
@@ -148,16 +149,16 @@ func TestGetAggregatedData(t *testing.T) {
 		data, err := svc.GetAggregatedData(ctx, "PETR4", nil)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "PETR4", data["ticker"])
-		assert.Equal(t, 100.5, data["max_range_value"])
-		assert.Equal(t, 2000, data["max_daily_volume"])
+		assert.Equal(t, "PETR4", data.Ticker)
+		assert.Equal(t, 100.5, data.MaxRangeValue)
+		assert.Equal(t, 2000, data.MaxDailyVolume)
 	})
 
 	t.Run("when repository return fail", func(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockRepo := mocks.NewMockRepository(ctrl)
-		mockReader := mocks.NewMockReader(ctrl)
+		mockReader := mock_reader.NewMockReader(ctrl)
 
 		svc := trade.NewService(mockRepo, mockReader, zap.NewNop())
 
@@ -179,7 +180,7 @@ func TestGetAggregatedData(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		defer ctrl.Finish()
 		mockRepo := mocks.NewMockRepository(ctrl)
-		mockReader := mocks.NewMockReader(ctrl)
+		mockReader := mock_reader.NewMockReader(ctrl)
 
 		svc := trade.NewService(mockRepo, mockReader, zap.NewNop())
 		startDate := time.Date(2024, 8, 1, 0, 0, 0, 0, time.UTC)
@@ -192,8 +193,8 @@ func TestGetAggregatedData(t *testing.T) {
 		data, err := svc.GetAggregatedData(ctx, "ITUB4", &startDate)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "ITUB4", data["ticker"])
-		assert.Equal(t, 55.5, data["max_range_value"])
-		assert.Equal(t, 1200, data["max_daily_volume"])
+		assert.Equal(t, "ITUB4", data.Ticker)
+		assert.Equal(t, 55.5, data.MaxRangeValue)
+		assert.Equal(t, 1200, data.MaxDailyVolume)
 	})
 }
